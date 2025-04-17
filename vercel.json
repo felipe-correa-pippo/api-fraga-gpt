@@ -1,0 +1,10 @@
+
+{
+  "version": 2,
+  "builds": [
+    { "src": "api/buscar_produtos.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/buscar-produtos", "dest": "/api/buscar_produtos.buscar_produtos" }
+  ]
+}
