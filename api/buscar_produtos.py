@@ -13,7 +13,7 @@ CLIENT_SECRET = "aecda5581b43d08ee7235e2f9795a764"
 TOKEN_URL = "https://accounts.fraga.com.br/realms/cat_teste/protocol/openid-connect/token"
 GRAPHQL_URL = "https://apiv2.catalogofraga.com.br/graphql"
 
-@app.post("/buscar-produtos")
+@app.post("/buscar-produtos")  # <- Muito importante ser POST
 async def buscar_produtos(request: ProdutoRequest):
     try:
         auth_response = requests.post(
@@ -31,7 +31,7 @@ async def buscar_produtos(request: ProdutoRequest):
         graphql_query = {
             "query": f"""
                 query {{
-                    produtos(filtro: {{ nome: \"{request.nomeProduto}\" }}) {{
+                    produtos(filtro: {{ nome: \\"{request.nomeProduto}\\" }}) {{
                         id
                         nome
                         preco
@@ -56,3 +56,4 @@ async def buscar_produtos(request: ProdutoRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
