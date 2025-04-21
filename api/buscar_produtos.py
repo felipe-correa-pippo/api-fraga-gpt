@@ -16,7 +16,7 @@ GRAPHQL_URL = "https://apiv2.catalogofraga.com.br/graphql"
 @app.post("/buscar-produtos")
 async def buscar_produtos(request: ProdutoRequest):
     try:
-        # Obter o token de acesso
+        # 1. Obter o token de acesso
         auth_response = requests.post(
             TOKEN_URL,
             data={
@@ -29,7 +29,7 @@ async def buscar_produtos(request: ProdutoRequest):
         auth_response.raise_for_status()
         access_token = auth_response.json()["access_token"]
 
-        # Montar a consulta GraphQL usando o nome informado
+        # 2. Fazer a consulta GraphQL
         graphql_query = {
             "query": f"""
                 query {{
@@ -42,56 +42,11 @@ async def buscar_produtos(request: ProdutoRequest):
                         nodes {{
                             product {{
                                 id
-                                createdDate
                                 partNumber
                                 brand {{
                                     id
                                     name
                                 }}
-                                summaryApplication
-                                specifications {{
-                                    id
-                                    category
-                                    description
-                                    value
-                                    important
-                                }}
-                                applicationDescription
-                                productGroup {{
-                                    id
-                                    name
-                                    family {{
-                                        id
-                                        name
-                                    }}
-                                    system {{
-                                        id
-                                        name
-                                    }}
-                                }}
-                                market {{
-                                    name
-                                }}
-                                containsUniversalApplication
-                                images {{
-                                    imageUrl
-                                    thumbnailUrl
-                                    category
-                                    caption
-                                    origin
-                                }}
-                                oldCodes
-                                videos
-                                distributors {{
-                                    code
-                                }}
-                                components {{
-                                    partNumber
-                                    brand
-                                }}
-                                status
-                                updatedDate
-                                finalReleaseDate
                             }}
                         }}
                     }}
@@ -99,7 +54,6 @@ async def buscar_produtos(request: ProdutoRequest):
             """
         }
 
-        # Fazer a consulta no GraphQL
         graphql_response = requests.post(
             GRAPHQL_URL,
             json=graphql_query,
@@ -111,10 +65,25 @@ async def buscar_produtos(request: ProdutoRequest):
         graphql_response.raise_for_status()
         data = graphql_response.json()
 
-        # Extrair os produtos da resposta
-        produtos = data.get("data", {}).get("catalogSearch", {}).get("nodes", [])
+        # 3. Formatar a resposta conforme esperado pelo GPT Actions
+        produtos_brutos = data.get("data", {}).get("catalogSearch", {}).get("nodes", [])
 
-        return {"produtos": produtos}
+        produtos_formatados = []
+        for item in produtos_brutos:
+            produto = item.get("product", {})
+            if produto:
+                produtos_formatados.append({
+                    "product": {
+                        "id": produto.get("id", ""),
+                        "partNumber": produto.get("partNumber", ""),
+                        "brand": {
+                            "id": produto.get("brand", {}).get("id", ""),
+                            "name": produto.get("brand", {}).get("name", "")
+                        }
+                    }
+                })
+
+        return {"produtos": produtos_formatados}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
