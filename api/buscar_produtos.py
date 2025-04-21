@@ -12,10 +12,14 @@ CLIENT_SECRET = "aecda5581b43d08ee7235e2f9795a764"
 TOKEN_URL = "https://accounts.fraga.com.br/realms/cat_teste/protocol/openid-connect/token"
 GRAPHQL_URL = "https://apiv2.catalogofraga.com.br/graphql"
 
+@app.get("/")
+async def home():
+    return {"message": "API online"}
+
 @app.post("/buscar-produtos")
 async def buscar_produtos(request: ProdutoRequest):
     try:
-        # Obter o token de acesso
+        # 1. Obter o token de acesso
         auth_response = requests.post(
             TOKEN_URL,
             data={
@@ -28,7 +32,7 @@ async def buscar_produtos(request: ProdutoRequest):
         auth_response.raise_for_status()
         access_token = auth_response.json()["access_token"]
 
-        # Fazer a consulta GraphQL com o nome do produto
+        # 2. Fazer a consulta GraphQL
         graphql_query = {
             "query": f"""
                 query {{
@@ -64,7 +68,7 @@ async def buscar_produtos(request: ProdutoRequest):
         graphql_response.raise_for_status()
         data = graphql_response.json()
 
-        # Formatar a resposta conforme o esperado pelo GPT Actions
+        # 3. Formatar a resposta conforme esperado pelo GPT Actions
         produtos_brutos = data.get("data", {}).get("catalogSearch", {}).get("nodes", [])
 
         produtos_formatados = []
