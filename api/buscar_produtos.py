@@ -13,9 +13,10 @@ CLIENT_SECRET = "aecda5581b43d08ee7235e2f9795a764"
 TOKEN_URL = "https://accounts.fraga.com.br/realms/cat_teste/protocol/openid-connect/token"
 GRAPHQL_URL = "https://apiv2.catalogofraga.com.br/graphql"
 
-@app.post("/buscar-produtos")  # <- Muito importante ser POST
+@app.post("/buscar-produtos")
 async def buscar_produtos(request: ProdutoRequest):
     try:
+        # Obter o token de acesso
         auth_response = requests.post(
             TOKEN_URL,
             data={
@@ -28,17 +29,77 @@ async def buscar_produtos(request: ProdutoRequest):
         auth_response.raise_for_status()
         access_token = auth_response.json()["access_token"]
 
+        # Montar a consulta GraphQL usando o nome informado
         graphql_query = {
             "query": f"""
                 query {{
-                    produtos(filtro: {{ nome: \\"{request.nomeProduto}\\" }}) {{
-                        id
-                        nome
-                        preco
+                    catalogSearch(query: "{request.nomeProduto}", take: 50) {{
+                        pageInfo {{
+                            total
+                            skip
+                            take
+                        }}
+                        nodes {{
+                            product {{
+                                id
+                                createdDate
+                                partNumber
+                                brand {{
+                                    id
+                                    name
+                                }}
+                                summaryApplication
+                                specifications {{
+                                    id
+                                    category
+                                    description
+                                    value
+                                    important
+                                }}
+                                applicationDescription
+                                productGroup {{
+                                    id
+                                    name
+                                    family {{
+                                        id
+                                        name
+                                    }}
+                                    system {{
+                                        id
+                                        name
+                                    }}
+                                }}
+                                market {{
+                                    name
+                                }}
+                                containsUniversalApplication
+                                images {{
+                                    imageUrl
+                                    thumbnailUrl
+                                    category
+                                    caption
+                                    origin
+                                }}
+                                oldCodes
+                                videos
+                                distributors {{
+                                    code
+                                }}
+                                components {{
+                                    partNumber
+                                    brand
+                                }}
+                                status
+                                updatedDate
+                                finalReleaseDate
+                            }}
+                        }}
                     }}
                 }}
             """
         }
+
+        # Fazer a consulta no GraphQL
         graphql_response = requests.post(
             GRAPHQL_URL,
             json=graphql_query,
@@ -50,10 +111,10 @@ async def buscar_produtos(request: ProdutoRequest):
         graphql_response.raise_for_status()
         data = graphql_response.json()
 
-        produtos = data.get("data", {}).get("produtos", [])
+        # Extrair os produtos da resposta
+        produtos = data.get("data", {}).get("catalogSearch", {}).get("nodes", [])
 
         return {"produtos": produtos}
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
