@@ -1,3 +1,4 @@
+
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import requests
@@ -89,4 +90,5 @@ async def buscar_produtos(request: ProdutoRequest):
         return {"produtos": produtos_formatados}
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"🚨 Erro interno: {e}")  # <-- Agora imprime o erro real no log do Render
+        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
