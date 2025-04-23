@@ -19,7 +19,7 @@ async def home():
 @app.post("/buscar-produtos")
 async def buscar_produtos(request: ProdutoRequest):
     try:
-        # 1. Obter o token de acesso
+        # 1. Obter o token
         auth_response = requests.post(
             TOKEN_URL,
             data={
@@ -32,61 +32,68 @@ async def buscar_produtos(request: ProdutoRequest):
         auth_response.raise_for_status()
         access_token = auth_response.json()["access_token"]
 
-        # 2. Fazer a consulta GraphQL
-        graphql_query = {
-            "query": f"""
-                query {{
-                    catalogSearch(query: "{request.nomeProduto}", take: 50) {{
-                        pageInfo {{
-                            total
-                            skip
-                            take
-                        }}
-                        nodes {{
-                            product {{
-                                id
-                                partNumber
-                                brand {{
+        # 2. Buscar todos os produtos paginando
+        produtos_formatados = []
+        take = 50
+        skip = 0
+        total = 1  # Inicia com 1 para entrar no loop
+
+        while skip < total:
+            graphql_query = {
+                "query": f"""
+                    query {{
+                        catalogSearch(query: "{request.nomeProduto}", take: {take}, skip: {skip}) {{
+                            pageInfo {{
+                                total
+                                skip
+                                take
+                            }}
+                            nodes {{
+                                product {{
                                     id
-                                    name
+                                    partNumber
+                                    brand {{
+                                        name
+                                    }}
+                                    summaryApplication
+                                    applicationDescription
                                 }}
-                                summaryApplication
-                                applicationDescription
                             }}
                         }}
                     }}
-                }}
-            """
-        }
-
-        graphql_response = requests.post(
-            GRAPHQL_URL,
-            json=graphql_query,
-            headers={
-                "Authorization": f"Bearer {access_token}",
-                "Content-Type": "application/json"
+                """
             }
-        )
-        graphql_response.raise_for_status()
-        data = graphql_response.json()
 
-        # 3. Extrair e formatar os produtos
-        produtos_brutos = data.get("data", {}).get("catalogSearch", {}).get("nodes", [])
+            graphql_response = requests.post(
+                GRAPHQL_URL,
+                json=graphql_query,
+                headers={
+                    "Authorization": f"Bearer {access_token}",
+                    "Content-Type": "application/json"
+                }
+            )
+            graphql_response.raise_for_status()
+            data = graphql_response.json()
 
-        produtos_formatados = []
-        for item in produtos_brutos:
-            produto = item.get("product", {})
-            if produto:
+            pageInfo = data["data"]["catalogSearch"]["pageInfo"]
+            total = pageInfo["total"]
+            nodes = data["data"]["catalogSearch"]["nodes"]
+
+            for item in nodes:
+                produto = item.get("product", {})
                 produtos_formatados.append({
                     "id": produto.get("id", ""),
                     "partNumber": produto.get("partNumber", ""),
-                    "brandName": produto.get("brand", {}).get("name", ""),
+                    "brand": produto.get("brand", {}).get("name", ""),
                     "summaryApplication": produto.get("summaryApplication", ""),
                     "applicationDescription": produto.get("applicationDescription", "")
                 })
 
+            skip += take
+
         return {"produtos": produtos_formatados}
 
     except Exception as e:
-        print(f"🚨 Erro interno: {e}")
-        raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+        print(f"Erro: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
