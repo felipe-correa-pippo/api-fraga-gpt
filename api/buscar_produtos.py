@@ -19,7 +19,7 @@ async def home():
 @app.post("/buscar-produtos")
 async def buscar_produtos(request: ProdutoRequest):
     try:
-        # 1. Obter o token
+        # 1. Obter token
         auth_response = requests.post(
             TOKEN_URL,
             data={
@@ -32,15 +32,14 @@ async def buscar_produtos(request: ProdutoRequest):
         auth_response.raise_for_status()
         access_token = auth_response.json()["access_token"]
 
-        # 2. Buscar com paginação limitada
+        # 2. Paginar até atingir um limite total de itens
         produtos_formatados = []
         take = 50
         skip = 0
         total = 1
-        pagina = 0
-        max_paginas = 3  # LIMITADOR para evitar sobrecarga no ChatGPT
+        max_itens = 200  # <-- LIMITADOR por quantidade total
 
-        while skip < total and pagina < max_paginas:
+        while skip < total and len(produtos_formatados) < max_itens:
             graphql_query = {
                 "query": f"""
                     query {{
@@ -77,11 +76,13 @@ async def buscar_produtos(request: ProdutoRequest):
             graphql_response.raise_for_status()
             data = graphql_response.json()
 
-            pageInfo = data["data"]["catalogSearch"]["pageInfo"]
-            total = pageInfo["total"]
-            nodes = data["data"]["catalogSearch"]["nodes"]
+            catalog_data = data["data"]["catalogSearch"]
+            total = catalog_data["pageInfo"]["total"]
+            nodes = catalog_data["nodes"]
 
             for item in nodes:
+                if len(produtos_formatados) >= max_itens:
+                    break
                 produto = item.get("product", {})
                 produtos_formatados.append({
                     "id": produto.get("id", ""),
@@ -92,7 +93,6 @@ async def buscar_produtos(request: ProdutoRequest):
                 })
 
             skip += take
-            pagina += 1
 
         return {"produtos": produtos_formatados}
 
