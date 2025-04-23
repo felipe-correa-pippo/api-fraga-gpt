@@ -32,13 +32,15 @@ async def buscar_produtos(request: ProdutoRequest):
         auth_response.raise_for_status()
         access_token = auth_response.json()["access_token"]
 
-        # 2. Buscar todos os produtos paginando
+        # 2. Buscar com paginação limitada
         produtos_formatados = []
         take = 50
         skip = 0
-        total = 1  # Inicia com 1 para entrar no loop
+        total = 1
+        pagina = 0
+        max_paginas = 3  # LIMITADOR para evitar sobrecarga no ChatGPT
 
-        while skip < total:
+        while skip < total and pagina < max_paginas:
             graphql_query = {
                 "query": f"""
                     query {{
@@ -90,10 +92,10 @@ async def buscar_produtos(request: ProdutoRequest):
                 })
 
             skip += take
+            pagina += 1
 
         return {"produtos": produtos_formatados}
 
     except Exception as e:
         print(f"Erro: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
